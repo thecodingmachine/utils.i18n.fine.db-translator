@@ -1,0 +1,42 @@
+{
+    "name": "mouf/utils.i18n.fine.db-translator",
+    "description": "Fine is a PHP internationalisation package. It will help you provide applications that support several languages. FINE means: Fine is not english :). This package provides a DB mapper that stores translations in database.",
+    "keywords": ["i18n", "internationalisation", "fine", "mouf"],
+    "homepage": "https://github.com/thecodingmachine/utils.i18n.fine.db-translator",
+    "type": "mouf-library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "David Négrier",
+            "email": "d.negrier@thecodingmachine.com",
+            "homepage": "http://mouf-php.com"
+        }
+
+    ],
+    "require": {
+    	"php": ">=5.4.0",
+    	"mouf/mouf-installer": "~2.0",
+    	"mouf/utils.i18n.fine.translation-interface": "~4.0",
+      "mouf/utils.i18n.fine.common": "~4.0",
+    	"mouf/database.doctrine-dbal-wrapper" : "~1.1",
+      "mouf/database.patcher" : "~2.0",
+      "mouf/utils.cache.apc-cache" : "~2.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Mouf\\Utils\\I18n\\Fine\\Translator\\": "src/"
+        }
+    },
+    "minimum-stability": "dev",
+    "extra": {
+	    "mouf": {
+	    	"install": [
+                {
+	                "type": "class",
+	                "class": "Mouf\\Utils\\I18n\\Fine\\Translator\\DbTranslatorInstaller",
+	                "description": "This installer will create a db translator added on the defaulTranslationService"
+                }
+	    	]
+	    }
+	}
+}
