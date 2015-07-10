@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<phpunit backupGlobals="false"
+         backupStaticAttributes="false"
+         colors="true"
+         convertErrorsToExceptions="true"
+         convertNoticesToExceptions="true"
+         convertWarningsToExceptions="true"
+         processIsolation="false"
+         stopOnFailure="false"
+         syntaxCheck="false"
+         bootstrap="tests/bootstrap.php"
+>
+    <testsuites>
+        <testsuite name="TDBM Test Suite">
+            <directory>./tests/</directory>
+        </testsuite>
+    </testsuites>
+
+    <php>
+        <!-- "Real" test database -->
+        <var name="db_host" value="localhost" />
+        <var name="db_username" value="root" />
+        <var name="db_password" value="" />
+        <var name="db_name" value="db_translator_testcase" />
+        <var name="db_port" value="3306"/>
+    </php>
+    
+    <filter>
+  		<whitelist processUncoveredFilesFromWhitelist="true">
+    		<directory suffix=".php">src</directory>
+    		<exclude>
+                <file>/src/DbTranslatorInstaller.php</file>
+    		</exclude>
+  		</whitelist>
+	</filter>
+</phpunit>

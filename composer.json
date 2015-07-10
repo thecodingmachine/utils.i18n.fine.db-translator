@@ -20,13 +20,24 @@
       "mouf/utils.i18n.fine.common": "~4.0",
     	"mouf/database.doctrine-dbal-wrapper" : "~1.1",
       "mouf/database.patcher" : "~2.0",
-      "mouf/utils.cache.apc-cache" : "~2.1"
+      "mouf/utils.cache.apc-cache" : "~2.1",
+        "mouf/utils.i18n.fine.language-detection" : "~4.0"
     },
+  "require-dev": {
+    "mouf/utils.cache.no-cache" : "~2.0",
+    "mouf/utils.log.errorlog_logger": "~2.0",
+    "phpunit/phpunit": "~4.0"
+  },
     "autoload": {
         "psr-4": {
             "Mouf\\Utils\\I18n\\Fine\\Translator\\": "src/"
         }
     },
+  "autoload-dev": {
+    "psr-4": {
+      "Mouf\\Utils\\I18n\\Fine\\Translator\\": "tests/"
+    }
+  },
     "minimum-stability": "dev",
     "extra": {
 	    "mouf": {
@@ -38,5 +49,7 @@
                 }
 	    	]
 	    }
-	}
+	},
+  "minimum-stability": "dev",
+  "prefer-stable": true
 }

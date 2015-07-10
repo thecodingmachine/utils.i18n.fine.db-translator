@@ -1,7 +1,6 @@
 Internationalisation with FINE
 ==============================
-[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/thecodingmachine/utils.i18n.fine.file-translator/badges/quality-score.png?b=4.0)](https://scrutinizer-ci.com/g/thecodingmachine/utils.i18n.fine.file-translator/?branch=4.0)
-[![SensioLabsInsight](https://insight.sensiolabs.com/projects/55996655-0d0e-48a1-8d98-90e68d1d2768/small.png)](https://insight.sensiolabs.com/projects/55996655-0d0e-48a1-8d98-90e68d1d2768)
+[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/thecodingmachine/utils.i18n.fine.db-translator/badges/quality-score.png?b=4.0)](https://scrutinizer-ci.com/g/thecodingmachine/utils.i18n.fine.db-translator/?branch=4.0)
 
 Fine is a PHP internationalisation package. It will help you develop applications that support several languages. Messages are stored in file.
 FINE means: Fine is not English :).

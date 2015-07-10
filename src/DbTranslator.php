@@ -6,14 +6,9 @@
  */
 namespace Mouf\Utils\I18n\Fine\Translator;
 
-use Mouf\Validator\MoufValidatorResult;
-
-use Mouf\Validator\MoufValidatorInterface;
-
-use Mouf\MoufManager;
-
-use Mouf\Utils\I18n\Fine\FineMessageLanguage;
-
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Statement;
+use Mouf\Utils\Cache\CacheInterface;
 use Mouf\Utils\I18n\Fine\LanguageDetectionInterface;
 use Mouf\Utils\I18n\Fine\Common\Ui\EditTranslationHelperTrait;
 use Mouf\Utils\I18n\Fine\TranslatorInterface;
@@ -35,136 +30,104 @@ class DbTranslator implements TranslatorInterface, EditTranslationInterface  {
 	private $msg = null;
 
 	/**
-	 * The path to the directory storing the translations.
-	 * <p>The directory path should end with a "/".</p>
-	 * <p>If the path start with / or c:/ is the real path of file, otherwise, this must be start without / to root path of application.</p>
-	 * <p>Each file in this directory is a PHP file containing an array variable named $msg. The key is the code or message id, the value is translation.<br/>
-	 * Example :
-	 * </p>
-	 * <pre class="brush:php">$msg["home.title"] = "Hello world";<br />
-	 * $msg["home.text"] = "News 1, news 2 and news 3";</pre>
+	 * The connection to the database.
 	 *
-	 *
-	 * @Property
-	 * @var string
+	 * @var Connection
 	 */
-	private $i18nMessagePath = "resources/";
+	private $dbConnection;
+
+	/**
+	 * @var CacheInterface
+	 */
+	private $cacheService;
 
 	/**
 	 * Set the language detection
 	 *
-	 * @Property
 	 * @var LanguageDetectionInterface
 	 */
 	private $languageDetection;
 
 	/**
-	 * Store the instance of language
-	 * @var array<MessageFileLanguage
+	 * @var Statement
 	 */
-	private $messageFile = [];
+	private $queryPreparedStatement;
+
+	/**
+	 * Default time to live for the cache in seconds.
+	 * @var int
+	 */
+	private $cacheTtl;
 
 	/**
 	 *
-	 * @param string $i18nMessagePath The path to the directory storing the translations. <p>The directory path should end with a "/".</p><p>If the path start with / or c:/ is the real path of file, otherwise, this must be start without / to root path of application.</p><p>By default this is resources/</p>
+	 * @param Connection $dbConnection
+	 * @param CacheInterface $cacheService
 	 * @param LanguageDetectionInterface $languageDetection LanguageDetectionInterface
+	 * @param int $cacheTtl
 	 */
-	public function __construct($i18nMessagePath = "resources/", LanguageDetectionInterface $languageDetection) {
-		$this->i18nMessagePath = $i18nMessagePath;
+	public function __construct(Connection $dbConnection, CacheInterface $cacheService, LanguageDetectionInterface $languageDetection, $cacheTtl = 7200) {
+		$this->dbConnection = $dbConnection;
+		$this->cacheService = $cacheService;
 		$this->languageDetection = $languageDetection;
+		$this->cacheTtl = $cacheTtl;
 	}
 
-	/**
-	 * This function return the real path set in parameter.
-	 * @return string
-	 */
-	private function getPath() {
-		if(strpos($this->i18nMessagePath, '/') === 0 || strpos($this->i18nMessagePath, ':/') === 1) {
-			return $this->i18nMessagePath;;
+	private function getQueryPreparedStatement() {
+		if ($this->queryPreparedStatement === null) {
+			$this->queryPreparedStatement = $this->dbConnection->prepare("SELECT message FROM message_translations WHERE `msg_key` = :msg_key AND language = :language");
 		}
-		return ROOT_PATH.$this->i18nMessagePath;
-	}
-
-	/**
-	 * Return the instance of the MessageFileLanguage
-	 * Each MessageFileLanguage is link to one language
-	 *
-	 * @param string $language
-	 * @return MessageFileLanguage
-	 */
-	private function getMessageFile($language) {
-		if(!isset($this->messageFile[$language])) {
-			$this->messageFile[$language] = new MessageFileLanguage($this->getPath(), $language);
-		}
-		return $this->messageFile[$language];
+		return $this->queryPreparedStatement;
 	}
 
 	/**
 	 * Retrieve the translation of code or message.
 	 * Check in the $msg variable if the key exist to return the value. This function check all the custom file if the translation is not in the main message_[language].php
-	 * If this message doesn't exist, it return a link to edit it.
 	 *
 	 */
-	public function getTranslation($message, array $parameters = [], LanguageDetectionInterface $languageDetectionInterface = null) {
-		if(!$languageDetectionInterface) {
+	public function getTranslation($message, array $parameters = [], LanguageDetectionInterface $languageDetection = null) {
+		if(!$languageDetection) {
 			$lang = $this->languageDetection->getLanguage();
+		} else {
+			$lang = $languageDetection->getLanguage();
 		}
-		else {
-			$lang = $languageDetectionInterface->getLanguage();
-		}
-		//Load the main file
-		if($this->msg[$lang] === null) {
-			$this->retrieveMessages($lang);
-		}
-		if (isset($this->msg[$lang][$message])) {
-			// build a replacement array with braces around the context keys
-			$replace = array();
-			foreach ($parameters as $key => $val) {
-				$replace['{' . $key . '}'] = $val;
+
+		$key = 'translate_'.$message.'_'.$lang;
+		$translation = $this->cacheService->get($key);
+
+		if (!$translation) {
+			$statement = $this->getQueryPreparedStatement();
+			$statement->execute([
+				'msg_key' => $message,
+				'language' => $lang
+			]);
+			$translation = $statement->fetchColumn(0);
+
+			if ($translation === false) {
+				$translation = null;
 			}
 
-			// interpolate replacement values into the message and return
-			return strtr($this->msg[$lang][$message], $replace);
+			$this->cacheService->set($key, $translation, 3600*24);
 		}
 
-		return null;
-	}
-
-	/**
-	 * Retrieve array variable store in the language file.
-	 * This function include the message resource by default and the language file if the language code is set.
-	 * The file contain an array with translation, we retrieve it in a private array msg.
-	 *
-	 * @param string $language Language code
-	 * @return boolean
-	 */
-	private function retrieveMessages($language) {
-		$this->msg = array();
-		if($language) {
-			if (file_exists($this->getPath().'messages_'.$language.'.php')){
-				$this->msg[$language] = require_once $this->getPath().'messages_'.$language.'.php';
-			}
+		if ($translation === null) {
+			return null;
 		}
-	}
 
+		// build a replacement array with braces around the context keys
+		$replace = array();
+		foreach ($parameters as $pkey => $val) {
+			$replace['{' . $pkey . '}'] = $val;
+		}
+
+		// interpolate replacement values into the message and return
+		return strtr($translation, $replace);
+	}
 
 	/***************************/
 	/****** Edition mode *******/
 	/***************************/
 
-	/**
-	 * The list of all messages in all languages
-	 * @var array<string, FineMessageLanguage>
-	 */
-	private $messages = array();
-
-	public function getAllTranslationByLanguage() {
-		$languages = $this->getLanguageList();
-		foreach ($languages as $language) {
-			$this->getTranslationsForLanguage($language);
-		}
-		return json_encode($this->messages);
-	}
 
 	/**
 	 * Return a list of all message for a language.
@@ -173,11 +136,17 @@ class DbTranslator implements TranslatorInterface, EditTranslationInterface  {
 	 * @return array<string, string> List with key value of translation
 	 */
 	public function getTranslationsForLanguage($language) {
-		if (!isset($this->messages[$language])) {
-			$messageLanguage = $this->getMessageFile($language);
-			$this->messages[$language] = $messageLanguage->getAllMessages();
+		$stmt = $this->dbConnection->executeQuery("SELECT msg_key, message FROM message_translations WHERE language = :language",
+			[
+				"language" => $language
+			]);
+
+		$messages = [];
+		foreach ($stmt as $row) {
+			$messages[$row['msg_key']] = $row['message'];
 		}
-		return $this->messages[$language];
+
+		return $messages;
 	}
 
 	/**
@@ -187,16 +156,17 @@ class DbTranslator implements TranslatorInterface, EditTranslationInterface  {
 	 * @return array<string, string> List with key value of translation
 	 */
 	public function getTranslationsForKey($key) {
-		$this->getAllTranslationByLanguage();
-		$translations = [];
-		foreach ($this->messages as $language => $messages) {
-			foreach ($messages as $messageKey => $message) {
-				if($key == $messageKey) {
-					$translations[$language] = $message;
-				}
-			}
+		$stmt = $this->dbConnection->executeQuery("SELECT language, message FROM message_translations WHERE msg_key = :msg_key",
+			[
+				"msg_key" => $key
+			]);
+
+		$messages = [];
+		foreach ($stmt as $row) {
+			$messages[$row['language']] = $row['message'];
 		}
-		return $translations;
+
+		return $messages;
 	}
 
 	/**
@@ -207,17 +177,14 @@ class DbTranslator implements TranslatorInterface, EditTranslationInterface  {
 	 */
 	public function deleteTranslation($key, $language = null) {
 		if($language === null) {
-			$languages = $this->getLanguageList();
-		}
-		else {
-			$languages = array($language);
-		}
-		foreach ($languages as $language) {
-			$messageFile = $this->getMessageFile($language);
-			$messageFile->deleteMessage($key);
-			$messageFile->save();
-
-			unset($this->messages[$language][$key]);
+			$this->dbConnection->executeUpdate('DELETE FROM message_translations WHERE msg_key = :msg_key', [
+				'msg_key' => $key
+			]);
+		} else {
+			$this->dbConnection->executeUpdate('DELETE FROM message_translations WHERE msg_key = :msg_key AND language = :language', [
+				'msg_key' => $key,
+				'language' => $language,
+			]);
 		}
 	}
 
@@ -229,47 +196,36 @@ class DbTranslator implements TranslatorInterface, EditTranslationInterface  {
 	 * @param string $language Language to add translation
 	 */
 	public function setTranslation($key, $value, $language) {
-		$messageFile = $this->getMessageFile($language);
-		$messageFile->setMessage($key, $value);
-		$messageFile->save();
-
-		$this->messages[$language][$key] = $value;
+		$this->dbConnection->executeUpdate('REPLACE INTO message_translations VALUES (:msg_key, :language, :value)', [
+			'msg_key' => $key,
+			'language' => $language,
+			'message' => $value,
+		]);
 	}
 
 	/**
-	 * Add or change many translations in one time
-	 *
-	 * @param array<string, string> $messages List with key value of translation
-	 * @param string $language Language to add translation
-	 */
-	public function setTranslationsForLanguage(array $messages, $language) {
-		$messageFile = $this->getMessageFile($language);
-		$messageFile->setMessages($messages);
-		$messageFile->save();
-
-		$this->messages[$language] = array_merge($this->messages[$language], $messages);
-	}
-
-	/**
-	 * Add or change many translations in one time
-	 *
-	 * @param array<string, string> $messages List with key value of translation
-	 * @param string $key Key to add translation
-	 */
-	public function setTranslationsForKey(array $messages, $key) {
-		foreach ($messages as $language => $value) {
-			$messageFile = $this->getMessageFile($language);
-			$messageFile->setMessage($key, $value);
-			$messageFile->save();
-		}
-	}
-
-	/**
-	 * List of all languages supported
+	 * List of all language supported
 	 *
 	 * @return array<string>
 	 */
 	public function getLanguageList() {
+		$stmt = $this->dbConnection->executeQuery("SELECT DISTINCT(language) FROM message_translations");
 
+		$result = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+		return array_map(function($item) { return $item['language']; }, $result);
+	}
+
+	/**
+	 * Return an array with all the key create without language checking
+	 *
+	 * @return array<string> All key
+	 */
+	public function getAllKey() {
+		$stmt = $this->dbConnection->executeQuery("SELECT DISTINCT(msg_key) FROM message_translations");
+
+		$result = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+		return array_map(function($item) { return $item['msg_key']; }, $result);
 	}
 }

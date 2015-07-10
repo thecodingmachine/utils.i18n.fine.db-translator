@@ -1,6 +1,7 @@
 <?php
 namespace Mouf\Utils\I18n\Fine\Translator;
 
+use Mouf\Database\Patcher\DatabasePatchInstaller;
 use Mouf\Installer\PackageInstallerInterface;
 use Mouf\MoufManager;
 
@@ -16,23 +17,26 @@ class DbTranslatorInstaller implements PackageInstallerInterface
      */
     public static function install(MoufManager $moufManager)
     {
-		//FineFileTranslatorService
+		// These instances are expected to exist when the installer is run.
+		$dbalConnection = $moufManager->getInstanceDescriptor('dbalConnection');
+		$apcCacheService = $moufManager->getInstanceDescriptor('apcCacheService');
+		$cascadingLanguageDetection = $moufManager->getInstanceDescriptor('cascadingLanguageDetection');
+
+		// Let's create the instances.
+		$dbTranslatorService = InstallUtils::getOrCreateInstance('dbTranslatorService', 'Mouf\\Utils\\I18n\\Fine\\Translator\\DbTranslator', $moufManager);
+
+		// Let's bind instances together.
+		if (!$dbTranslatorService->getConstructorArgumentProperty('dbConnection')->isValueSet()) {
+			$dbTranslatorService->getConstructorArgumentProperty('dbConnection')->setValue($dbalConnection);
+		}
+		if (!$dbTranslatorService->getConstructorArgumentProperty('cacheService')->isValueSet()) {
+			$dbTranslatorService->getConstructorArgumentProperty('cacheService')->setValue($apcCacheService);
+		}
+		if (!$dbTranslatorService->getConstructorArgumentProperty('languageDetection')->isValueSet()) {
+			$dbTranslatorService->getConstructorArgumentProperty('languageDetection')->setValue($cascadingLanguageDetection);
+		}
+
 		if (!$moufManager->instanceExists("dbTranslatorService")) {
-			$cascadingLanguageDetection = null;
-			if($moufManager->instanceExists('cascadingLanguageDetection')) {
-				$cascadingLanguageDetection = $moufManager->getInstanceDescriptor("cascadingLanguageDetection");
-			}
-
-      $dbConnectionDescriptor = $moufManager->getInstanceDescriptor('dbalConnection');
-
-			$dbTranslator = $moufManager->createInstance("Mouf\\Utils\\I18n\\Fine\\Translator\\DbTranslator");
-			$dbTranslator->setName("dbTranslatorService");
-			$dbTranslator->getProperty("dbConnection")->setValue($dbConnectionDescriptor);
-
-			if($cascadingLanguageDetection) {
-				$dbTranslator->getProperty("languageDetection")->setValue($cascadingLanguageDetection);
-			}
-
 			if($moufManager->instanceExists('defaultTranslationService')) {
 				$defaultTranslationService = $moufManager->getInstanceDescriptor("defaultTranslationService");
 				$translators = $defaultTranslationService->getProperty('translators')->getValue();
@@ -40,6 +44,9 @@ class DbTranslatorInstaller implements PackageInstallerInterface
 				$defaultTranslationService->getProperty('translators')->setValue($translators);
 			}
 		}
+
+		DatabasePatchInstaller::registerPatch($moufManager, "dbTranslatorPatch", "Creates the translation table used by the DB translator",
+			"vendor/mouf/utils.i18n.fine.db-translator/sql/up/dbTranslatorPatch.sql");
 
 		// Let's rewrite the MoufComponents.php file to save the component
 		$moufManager->rewriteMouf();
