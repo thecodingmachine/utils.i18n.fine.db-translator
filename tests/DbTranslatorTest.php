@@ -112,13 +112,14 @@ class DbTranslatorTest extends \PHPUnit_Framework_TestCase {
 	}
 
 	public function testSetDelete() {
-
 		$this->assertEquals('world', $this->dbTranslator->getTranslation('hello'));
 		$this->dbTranslator->setTranslation('hello', 'the world', 'en');
 		$this->assertEquals('the world', $this->dbTranslator->getTranslation('hello'));
+		$this->dbTranslator->deleteTranslation('hello', 'en');
+		$this->assertNull($this->dbTranslator->getTranslation('hello'));
 
-
+		$this->dbTranslator->deleteTranslation('hop');
+		$this->assertNull($this->dbTranslator->getTranslation('hop'));
+		$this->assertNull($this->dbTranslator->getTranslation('hop'), [], new FixedLanguageDetection('fr'));
 	}
-
-
 }

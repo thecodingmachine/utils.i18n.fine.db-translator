@@ -177,7 +177,10 @@ class DbTranslator implements TranslatorInterface, EditTranslationInterface  {
 	 */
 	public function deleteTranslation($key, $language = null) {
 		if($language === null) {
-			// TODO: purge cache!
+			$existingTranslations = $this->getTranslationsForKey($key);
+			foreach ($existingTranslations as $language => $message) {
+				$this->cacheService->purge('translate_'.$key.'_'.$language);
+			}
 
 			$this->dbConnection->executeUpdate('DELETE FROM message_translations WHERE msg_key = :msg_key', [
 				'msg_key' => $key
@@ -188,8 +191,7 @@ class DbTranslator implements TranslatorInterface, EditTranslationInterface  {
 				'language' => $language,
 			]);
 
-			$key = 'translate_'.$key.'_'.$language;
-			$this->cacheService->purge($key);
+			$this->cacheService->purge('translate_'.$key.'_'.$language);
 		}
 	}
 
