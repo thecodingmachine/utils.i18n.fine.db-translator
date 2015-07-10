@@ -33,5 +33,8 @@
                 <file>/src/DbTranslatorInstaller.php</file>
     		</exclude>
   		</whitelist>
+        <blacklist>
+            <file>/src/DbTranslatorInstaller.php</file>
+        </blacklist>
 	</filter>
 </phpunit>

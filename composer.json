@@ -24,9 +24,10 @@
         "mouf/utils.i18n.fine.language-detection" : "~4.0"
     },
   "require-dev": {
-    "mouf/utils.cache.no-cache" : "~2.0",
+    "mouf/utils.cache.in-memory-cache" : "~1.0",
     "mouf/utils.log.errorlog_logger": "~2.0",
-    "phpunit/phpunit": "~4.0"
+    "phpunit/phpunit": "~4.0",
+    "mouf/mouf": "~2.0"
   },
     "autoload": {
         "psr-4": {

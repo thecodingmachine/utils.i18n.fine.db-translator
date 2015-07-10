@@ -19,6 +19,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 namespace Mouf\Utils\I18n\Fine\Translator;
 
+use Mouf\Utils\Cache\InMemoryCache;
 use Mouf\Utils\Cache\NoCache;
 use Mouf\Utils\I18n\Fine\Language\FixedLanguageDetection;
 
@@ -68,7 +69,7 @@ class DbTranslatorTest extends \PHPUnit_Framework_TestCase {
 		$this->dbConnection->exec("INSERT INTO message_translations VALUES ('hop', 'en', 'hop {a} {b}');");
 		$this->dbConnection->exec("INSERT INTO message_translations VALUES ('hop', 'fr', 'yop {b} {a}');");
 
-		$this->dbTranslator = new DbTranslator($this->dbConnection, new NoCache(), new FixedLanguageDetection());
+		$this->dbTranslator = new DbTranslator($this->dbConnection, new InMemoryCache(), new FixedLanguageDetection());
 	}
 
 
@@ -79,7 +80,7 @@ class DbTranslatorTest extends \PHPUnit_Framework_TestCase {
 		$this->assertEquals('yop bb aa', $this->dbTranslator->getTranslation('hop', [ 'a' => 'aa', 'b' => 'bb' ], new FixedLanguageDetection('fr')));
 	}
 
-	public function test() {
+	public function testGetLanguageList() {
 
 		$allLanguages = $this->dbTranslator->getLanguageList();
 		$this->assertContains('fr', $allLanguages);
@@ -87,20 +88,36 @@ class DbTranslatorTest extends \PHPUnit_Framework_TestCase {
 		$this->assertCount(2, $allLanguages);
 	}
 
+	public function testGetTranslationsForKey() {
 
+		$translations = $this->dbTranslator->getTranslationsForKey('hello');
+		$this->assertArrayHasKey('fr', $translations);
+		$this->assertArrayHasKey('en', $translations);
+		$this->assertCount(2, $translations);
+	}
 
+	public function testGetTranslationsForLanguage() {
 
-
-
-
-
-
+		$translations = $this->dbTranslator->getTranslationsForLanguage('en');
+		$this->assertArrayHasKey('hello', $translations);
+		$this->assertArrayHasKey('hop', $translations);
+		$this->assertCount(2, $translations);
+	}
 
 	public function testGetAllKeys() {
 		$allKeys = $this->dbTranslator->getAllKey();
 		$this->assertContains('hello', $allKeys);
 		$this->assertContains('hop', $allKeys);
 		$this->assertCount(2, $allKeys);
+	}
+
+	public function testSetDelete() {
+
+		$this->assertEquals('world', $this->dbTranslator->getTranslation('hello'));
+		$this->dbTranslator->setTranslation('hello', 'the world', 'en');
+		$this->assertEquals('the world', $this->dbTranslator->getTranslation('hello'));
+
+
 	}
 
 

@@ -107,7 +107,7 @@ class DbTranslator implements TranslatorInterface, EditTranslationInterface  {
 				$translation = null;
 			}
 
-			$this->cacheService->set($key, $translation, 3600*24);
+			$this->cacheService->set($key, $translation, $this->cacheTtl);
 		}
 
 		if ($translation === null) {
@@ -177,6 +177,8 @@ class DbTranslator implements TranslatorInterface, EditTranslationInterface  {
 	 */
 	public function deleteTranslation($key, $language = null) {
 		if($language === null) {
+			// TODO: purge cache!
+
 			$this->dbConnection->executeUpdate('DELETE FROM message_translations WHERE msg_key = :msg_key', [
 				'msg_key' => $key
 			]);
@@ -185,6 +187,9 @@ class DbTranslator implements TranslatorInterface, EditTranslationInterface  {
 				'msg_key' => $key,
 				'language' => $language,
 			]);
+
+			$key = 'translate_'.$key.'_'.$language;
+			$this->cacheService->purge($key);
 		}
 	}
 
@@ -199,8 +204,11 @@ class DbTranslator implements TranslatorInterface, EditTranslationInterface  {
 		$this->dbConnection->executeUpdate('REPLACE INTO message_translations VALUES (:msg_key, :language, :value)', [
 			'msg_key' => $key,
 			'language' => $language,
-			'message' => $value,
+			'value' => $value,
 		]);
+
+		$key = 'translate_'.$key.'_'.$language;
+		$this->cacheService->set($key, $value, $this->cacheTtl);
 	}
 
 	/**
