@@ -1,6 +1,7 @@
 <?php
 namespace Mouf\Utils\I18n\Fine\Translator;
 
+use Mouf\Actions\InstallUtils;
 use Mouf\Database\Patcher\DatabasePatchInstaller;
 use Mouf\Installer\PackageInstallerInterface;
 use Mouf\MoufManager;
@@ -40,7 +41,7 @@ class DbTranslatorInstaller implements PackageInstallerInterface
 			if($moufManager->instanceExists('defaultTranslationService')) {
 				$defaultTranslationService = $moufManager->getInstanceDescriptor("defaultTranslationService");
 				$translators = $defaultTranslationService->getProperty('translators')->getValue();
-				$translators[] = $dbTranslator;
+				$translators[] = $dbTranslatorService;
 				$defaultTranslationService->getProperty('translators')->setValue($translators);
 			}
 		}
